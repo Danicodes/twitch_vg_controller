@@ -1,5 +1,6 @@
 """
-A client to communicate with the vserver
+A client intended to run on WSL2 and interface with a server running in powershell
+on Windows.
 """
 import os, sys
 import asyncio
@@ -7,22 +8,22 @@ import json
 import socket
 import logging
 
+# TODO: (A) Either redo the script with aihttp/websocket communication to
+#           handle multiple buffer pileup on the server side
+#       (B) implement a method to run within the bot, to let us async'ly recieve
+#       responses from the server (create_task from bot?)
+#
+
 class VClient:
-    def __init__(self, host=None, port=None, loop=None):
-        self.HOST = host if host else socket.gethostbyname(socket.gethostname())
+    def __init__(self, host=None, port=None):
+        self.HOST = '127.0.0.1' # localhost/loopback addr
         self.PORT = port if port else int(os.environ["GAMEPORT"])
         self.sock = None
-
-        #if loop:
-        #    self.loop = loop
-        print(loop)
 
     def start_client(self, loop=None):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.setblocking(False)
         sock.settimeout(20)
-        #sock.bind(('', self.PORT))
-
         sock.connect_ex((self.HOST, self.PORT))
 
         #if not self.loop:
@@ -33,15 +34,14 @@ class VClient:
         self.sock = sock
         return
 
-    # Should run in a async loop of some kind listening for requests to send?
     def send(self, data: dict):
         try:
             print(f"Sending request {data}")
             self.sock.send(json.dumps(data).encode())
-        except:
+        except : # Just anything right now
             e = sys.exc_info()[0]
             print(e)
-            breakpoint()
+            raise
             self.close()
         return
 
@@ -61,12 +61,16 @@ class VClient:
         return
 
 if __name__ == '__main__':
+    # Testing a constant connection
     client = VClient()
     client.start_client()
 
     create_request = {"request":"create_player", "player": "dani"}
     client.send(create_request)
-    play_request = {"request": "play", "player": "player1", "moveset": "LUUDDBABABA"}
-    client.send(play_request)
+
+    while True:
+        moveset = input("play moveset?")
+        play_request = {"request": "play", "player": "player1", "moveset": moveset}
+        client.send(play_request)
 
     #asyncio.gather(client.send(request), client.recv())
